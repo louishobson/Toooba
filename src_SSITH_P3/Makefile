@@ -64,7 +64,7 @@ include $(REPO)/builds/Resources/Include_RISCY_Config.mk
 # ================================================================
 # Search path for bsc for .bsv files
 COREDIR ?= $(REPO)
-COREW_DIRS = $(CURDIR)/src_BSV:$(COREDIR)/src_Core/Core:$(COREDIR)/src_Core/CPU:$(COREDIR)/src_Core/ISA:$(COREDIR)/src_Core/PLIC:$(COREDIR)/src_Core/Debug_Module:$(COREDIR)/src_Core/BSV_Additional_Libs:$(COREDIR)/src_Core/RISCY_OOO/procs/RV64G_OOO:$(COREDIR)/src_Core/RISCY_OOO/procs/lib:$(COREDIR)/src_Core/RISCY_OOO/coherence/src:$(COREDIR)/src_Core/RISCY_OOO/fpgautils/lib
+COREW_DIRS = $(CURDIR)/src_BSV:$(COREDIR)/src_Core/Core:$(COREDIR)/src_Core/CPU:$(COREDIR)/src_Core/ISA:$(COREDIR)/src_Core/PLIC:$(COREDIR)/src_Core/Debug_Module:$(COREDIR)/src_Core/BSV_Additional_Libs:$(COREDIR)/src_Core/RISCY_OOO/procs/RV64G_OOO:$(COREDIR)/src_Core/RISCY_OOO/procs/lib:$(COREDIR)/src_Core/RISCY_OOO/coherence/src:$(COREDIR)/src_Core/RISCY_OOO/coherence/src/prefetcher:$(COREDIR)/src_Core/RISCY_OOO/fpgautils/lib
 WINDCOREIFCDIR ?= $(COREDIR)/libs/WindCoreInterface
 CHERICAPLIBDIR ?= $(COREDIR)/libs/cheri-cap-lib
 TAGCONTROLLERDIR ?= $(COREDIR)/libs/TagController
