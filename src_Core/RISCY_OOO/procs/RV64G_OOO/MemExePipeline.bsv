@@ -147,7 +147,7 @@ typedef struct {
     LdQTag tag;
     Addr paddr;
     Bool loadTags;
-    Bit#(16) pcHash;
+    PCHash pcHash;
     Addr boundsOffset;
     Addr boundsLength;
     Addr boundsVirtBase;
@@ -155,7 +155,7 @@ typedef struct {
 
 typedef struct {
     Addr paddr;
-    Bit#(16) pcHash;
+    PCHash pcHash;
     Addr boundsOffset;
     Addr boundsLength;
     Addr boundsVirtBase;
