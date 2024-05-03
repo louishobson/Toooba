@@ -182,27 +182,6 @@ typedef struct {
 `endif
 } ReqStQEntry deriving (Bits, Eq, FShow);
 
-typedef struct {
-    LdQTag tag;
-    Addr paddr;
-    Bool loadTags;
-    PCHash pcHash;
-    Addr boundsOffset;
-    Addr boundsLength;
-    Addr boundsVirtBase;
-} ReqLdQEntry deriving (Bits, Eq, FShow);
-
-typedef struct {
-    Addr paddr;
-    PCHash pcHash;
-    Addr boundsOffset;
-    Addr boundsLength;
-    Addr boundsVirtBase;
-`ifndef TSO_MM
-    SBIndex sbIdx;
-`endif
-} ReqStQEntry deriving (Bits, Eq, FShow);
-
 //SpecFifo#(2,IncorrectSpec,1,1) incorrectSpec_ff <- mkSpecFifoCF(True);
 // synthesized pipeline fifos
 typedef SpecFifo_SB_deq_enq_C_deq_enq#(1, MemDispatchToRegRead) MemDispToRegFifo;
