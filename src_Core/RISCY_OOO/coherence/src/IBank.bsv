@@ -146,7 +146,7 @@ module mkIBank#(
     Add#(TAdd#(tagSz, indexSz), TAdd#(lgBankNum, LgLineSzBytes), AddrSz)
 );
 
-    Bool verbose = False;
+    Bool verbose = True;
 
     ICRqMshr#(cRqNum, wayT, tagT, procRqT, resultT) cRqMshr <- mkICRqMshrLocal;
 
