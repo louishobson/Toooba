@@ -44,6 +44,7 @@ import Assert::*;
 import Connectable::*;
 import GetPut::*;
 import ClientServer::*;
+import CHERICC_Fat::*;
 
 typedef enum {
     I = 2'd0,
@@ -205,7 +206,10 @@ typedef struct {
     MemTaggedData data; // valid when op == Sc/Amo
     AmoInst amoInst; // valid when op == Amo
     Bool loadTags; // valid when op == Ld
-    Bit#(16) pcHash; // hash of instruction pc sending the request
+    PCHash pcHash; // hash of instruction pc sending the request
+    Addr boundsOffset; //From capability sending the memory request. Used in prefetching.
+    Addr boundsLength; //From capability sending the memory request. Used in prefetching.
+    Addr boundsVirtBase; //From capability sending the memory request. Used in prefetching.
 } ProcRq#(type idT) deriving(Bits, Eq, FShow);
 
 interface L1ProcReq#(type idT);
@@ -217,6 +221,19 @@ interface L1ProcResp#(type idT);
     method Action respLrScAmo(idT id, MemTaggedData resp);
     method ActionValue#(Tuple2#(LineByteEn, Line)) respSt(idT id);
     method Action evict(LineAddr a); // called when cache line is evicted
+endinterface
+
+typedef struct {
+    Addr paddr;
+    Bool haveException;
+    Bool permsCheckPass;
+    CapPipe cap;
+} DTlbRespToPrefetcher deriving (Bits, Eq, FShow);
+
+interface DTlbToPrefetcher;
+    method Action prefetcherReq(CapPipe addr);
+    method DTlbRespToPrefetcher prefetcherResp;
+    method Action deqPrefetcherResp;
 endinterface
 
 // RISCV-specific store-cond return values
@@ -255,6 +272,9 @@ typedef struct {
     idT id; // slot id in child cache
     childT child; // from which child
     Bool isPrefetchRq;
+    Addr boundsOffset;
+    Addr boundsLength;
+    Addr boundsVirtBase;
 } CRqMsg#(type idT, type childT) deriving(Bits, Eq, FShow);
 
 typedef struct {
@@ -313,6 +333,10 @@ typedef struct {
     LineByteEn byteEn;
     // req id: distinguish between child and dma
     LLRqId#(cRqIdT, dmaRqIdT) id;
+    //For prefetching, coming from crq
+    Addr boundsOffset;
+    Addr boundsLength;
+    Addr boundsVirtBase;
 } LLRq#(type cRqIdT, type dmaRqIdT, type childT) deriving(Bits, Eq, FShow);
 
 // memory msg

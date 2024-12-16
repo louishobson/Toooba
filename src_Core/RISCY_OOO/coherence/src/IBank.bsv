@@ -59,7 +59,8 @@ import CacheUtils::*;
 import Performance::*;
 import LatencyTimer::*;
 import RandomReplace::*;
-import Prefetcher::*;
+import Prefetcher_intf::*;
+import Prefetcher_top::*;
 `ifdef PERFORMANCE_MONITORING
 import PerformanceMonitor::*;
 import BlueUtils::*;
@@ -431,7 +432,10 @@ module mkIBank#(
             canUpToE: False,
             id: 0,
             child: ?,
-            isPrefetchRq: True
+            isPrefetchRq: True,
+            boundsOffset: 0,
+            boundsLength: 0,
+            boundsVirtBase: 0
         };
         rqToPQ.enq(cRqToP);
         if (verbose)
@@ -452,7 +456,10 @@ module mkIBank#(
             canUpToE: False,
             id: slot.way,
             child: ?,
-            isPrefetchRq: False
+            isPrefetchRq: False,
+            boundsOffset: 0,
+            boundsLength: 0,
+            boundsVirtBase: 0
         };
         rqToPQ.enq(cRqToP);
        if (verbose)

@@ -53,7 +53,8 @@ import LatencyTimer::*;
 import Cntrs::*;
 import ConfigReg::*;
 import RandomReplace::*;
-import Prefetcher::*;
+import Prefetcher_intf::*;
+import Prefetcher_top::*;
 import ProcTypes::*;
 `ifdef PERFORMANCE_MONITORING
 import PerformanceMonitor::*;
@@ -259,9 +260,9 @@ module mkLLBank#(
     Count#(Data) dmaStReqCnt <- mkCount(0);
 `endif
 `ifdef PERFORMANCE_MONITORING
-    Array #(Reg #(EventsLL)) perf_events <- mkDRegOR (2, unpack (0));
+    Array #(Reg #(EventsLL)) perf_events <- mkDRegOR (3, unpack (0));
 `endif
-function Action incrMissCnt(cRqIndexT idx, Bool isDma, Bool isInstructionAccess);
+function Action incrMissCnt(cRqT cRq, cRqIndexT idx, Bool isDma, Bool isInstructionAccess);
 action
     let lat <- latTimer.done(idx);
 `ifdef PERF_COUNT
@@ -282,12 +283,22 @@ action
 `endif
 `ifdef PERFORMANCE_MONITORING
     EventsLL events = unpack (0);
-    events.evt_LD_MISS_LAT = saturating_truncate(lat); // Don't support seperate DMA counts.
+    events.evt_LD_MISS_LAT = saturating_truncate(lat);
     events.evt_LD_MISS = 1;
     perf_events[1] <= events;
 `endif
 endaction
 endfunction
+
+/*
+    rule checkIfMshrFull;
+        if (cRqMshr.isFull)  begin
+            EventsLL events = unpack(0);
+            events.evt_LD = 1;
+            perf_events[2] <= events;
+        end
+    endrule
+    */
 
 
     function tagT getTag(Addr a) = truncateLSB(a);
@@ -399,7 +410,10 @@ endfunction
             canUpToE: r.canUpToE,
             child: r.child,
             byteEn: ?,
-            id: Child (r.id)
+            id: Child (r.id),
+            boundsOffset: r.boundsOffset,
+            boundsLength: r.boundsLength,
+            boundsVirtBase: r.boundsVirtBase
         };
         // setup new MSHR entry
         cRqIndexT n <- cRqMshr.transfer.getEmptyEntryInit(cRq, Invalid);
@@ -433,7 +447,10 @@ endfunction
             canUpToE: True,
             child: child,
             byteEn: ?,
-            id: Child (?)
+            id: Child (?),
+            boundsOffset: ?,
+            boundsLength: ?,
+            boundsVirtBase: ?
         };
         // setup new MSHR entry
         cRqIndexT n <- cRqMshr.transfer.getEmptyEntryInit(cRq, Invalid);
@@ -466,7 +483,10 @@ endfunction
             canUpToE: True,
             child: child,
             byteEn: ?,
-            id: Child (?)
+            id: Child (?),
+            boundsOffset: ?,
+            boundsLength: ?,
+            boundsVirtBase: ?
         };
         // setup new MSHR entry
         cRqIndexT n <- cRqMshr.transfer.getEmptyEntryInit(cRq, Invalid);
@@ -498,7 +518,10 @@ endfunction
             canUpToE: r.canUpToE,
             child: r.child,
             byteEn: ?,
-            id: Child (r.id)
+            id: Child (r.id),
+            boundsOffset: r.boundsOffset,
+            boundsLength: r.boundsLength,
+            boundsVirtBase: r.boundsVirtBase
         };
         if(!cRqMshr.transfer.hasEmptyEntry(cRq)) begin
             mshrBlocks.incr(1);
@@ -518,7 +541,10 @@ endfunction
             canUpToE: False, // DMA should not go to E
             child: ?,
             byteEn: r.byteEn,
-            id: Dma (r.id)
+            id: Dma (r.id),
+            boundsOffset: ?,
+            boundsLength: ?,
+            boundsVirtBase: ?
         };
         // setup new MSHR entry and data
         cRqIndexT n <- cRqMshr.transfer.getEmptyEntryInit(cRq, write ? Valid (r.data) : Invalid);
@@ -562,7 +588,10 @@ endfunction
             canUpToE: False,
             child: ?,
             byteEn: r.byteEn,
-            id: Dma (r.id)
+            id: Dma (r.id),
+            boundsOffset: ?,
+            boundsLength: ?,
+            boundsVirtBase: ?
         };
         if(!cRqMshr.transfer.hasEmptyEntry(cRq)) begin
             mshrBlocks.incr(1);
@@ -630,7 +659,12 @@ endfunction
         // performance counter: normal miss lat and cnt
         // Check lowest bit of child ID to determine if this was an ICache access
         if (!cRqIsPrefetch[n]) begin
-            incrMissCnt(n, False, cRq.child[0] == 1);
+            incrMissCnt(cRq, n, False, cRq.child[0] == 1);
+        end
+        else begin
+            EventsLL events = unpack (0);
+            events.evt_EVICT = 1;
+            perf_events[2] <= events;
         end
     endrule
 
@@ -644,7 +678,7 @@ endfunction
         cRqMshr.mRsDeq.setData(mRs.id.mshrIdx, Valid (mRs.data));
         rsLdToDmaIndexQ_mRsDeq.enq(mRs.id.mshrIdx);
         // performance counter: dma miss lat and cnt
-        incrMissCnt(mRs.id.mshrIdx, True, False);
+        //incrMissCnt(mRs.id.mshrIdx, True, False);
     endrule
 
     // send rd/wr to mem

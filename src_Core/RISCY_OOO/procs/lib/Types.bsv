@@ -46,6 +46,12 @@ import CHERICC_Fat::*;
 import RVFI_DII_Types::*;
 `endif
 
+interface Parameter#(numeric type param);
+endinterface
+
+module mkParameter(Parameter#(param));
+endmodule
+
 typedef 64 AddrSz;
 typedef Bit#(AddrSz) Addr;
 
@@ -156,6 +162,8 @@ typedef Bit#(LgDataSzInst) DataInstOffset;
 typedef TDiv#(MemDataSz, Inst16_Sz) MemDataSzInst;
 typedef TLog#(MemDataSzInst) LgMemDataSzInst;
 typedef Bit#(LgMemDataSzInst) MemDataInstOffset;
+
+typedef Bit#(32) PCHash;
 
 // These types show up in many places so they are defined here
 typedef enum {Swap, Add, Xor, And, Or, Min, Max, Minu, Maxu, None} AmoFunc deriving(Bits, Eq, FShow, Bounded);

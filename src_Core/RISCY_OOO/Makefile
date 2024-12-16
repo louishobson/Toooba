@@ -108,15 +108,22 @@ copy_coherence_src_files:
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/LLCRqMshr.bsv            ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/LLPipe.bsv               ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/MshrDeadlockChecker.bsv  ./$(COHERENCE_SRC)/
-	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher.bsv  		  ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/RandomReplace.bsv        ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/RWBramCore.bsv           ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/RWBramCoreSequential.bsv ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/SelfInvIBank.bsv         ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/SelfInvIPipe.bsv         ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/SelfInvL1Bank.bsv        ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/SelfInvL1Pipe.bsv        ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/SelfInvLLBank.bsv        ./$(COHERENCE_SRC)/
 	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/SelfInvLLPipe.bsv        ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/Prefetcher_intf.bsv         ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/StridePrefetchers.bsv       ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/CheriPrefetchers.bsv       ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/MarkovPrefetchers.bsv       ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/InstructionPrefetchers.bsv  ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/SignaturePathPrefetcher.bsv ./$(COHERENCE_SRC)/
+	cp -p $(RISCY_HOME)/$(COHERENCE_SRC)/Prefetcher/Prefetcher_top.bsv          ./$(COHERENCE_SRC)/
 
 FPGAUTILS_LIB               = fpgautils/lib
 FPGAUTILS_XILINX_FPU        = fpgautils/xilinx/fpu
