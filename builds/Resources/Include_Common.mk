@@ -33,7 +33,6 @@ help:
 all: compile  simulator
 
 # ================================================================
->>>>>>> karlis/CHERI
 # Search path for bsc for .bsv files
 
 TESTBENCH_DIRS = $(REPO)/src_Testbench/Top:$(REPO)/src_Testbench/SoC

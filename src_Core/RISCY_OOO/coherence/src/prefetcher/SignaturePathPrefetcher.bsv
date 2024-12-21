@@ -159,7 +159,7 @@ module mkPrefetchCalculator#(Prob threshold, String divTableFile)
     Divider div2 <- mkDivider(divTableFile);
     Vector#(4, Reg#(Bool)) stage4IssuedPrefetch <- replicateM(mkReg(False));
 
-    Bool verbose = True;
+    Bool verbose = False;
     Bool extraVerbose = False;
 
     rule stage2;
@@ -362,8 +362,8 @@ module mkSignatureTable(SignatureTable#(outputQueueSize, tableSets, tableWays)) 
     FIFO#(LineAddr) addrForRdReq <- mkFIFO;
     RWBramCore#(tableIndexT, Vector#(tableWays, stEntryT)) st <- mkRWBramCoreForwarded();
 
-    Bool verbose = True;
-    Bool extraVerbose = True;
+    Bool verbose = False;
+    Bool extraVerbose = False;
 
     function Maybe#(UInt#(tableWayBits)) getTagMatchWay (Vector#(tableWays, stEntryT) entries, tableTagT tag);
         function Bool isMatch (stEntryT entry);
@@ -515,8 +515,8 @@ module mkPatternTable(PatternTable#(numEntries, inputFifoSize)) provisos
 
     RWBramCore#(tableIndexT, PTEntry) pt <- mkRWBramCoreForwarded();
     
-    Bool verbose = True;
-    Bool extraVerbose = True;
+    Bool verbose = False;
+    Bool extraVerbose = False;
     
     function Maybe#(UInt#(2)) getDeltaMatchingIdx (Vector#(4, DeltaEntry) entries, Delta delta);
         function Bool isMatch (DeltaEntry entry);
@@ -646,7 +646,7 @@ module mkPrefetchFilter(PrefetchFilter#(numEntries, pfCounterBits, queueSize)) p
     Fifo#(1, Tuple3#(tagT, tableIdxT, HitOrMiss)) reportFifo_afterRead <- mkPipelineFifo;
     Fifo#(queueSize, Tuple2#(LineAddr, HitOrMiss)) reportFifo <- mkOverflowBypassFifo;
 
-    Bool verbose = True;
+    Bool verbose = False;
     Bool extraVerbose = False;
 
     function Prob getNewAlpha();
@@ -778,7 +778,7 @@ Add#(1, d__, stWays)
     Fifo#(8, LineAddr) addrToPrefetch <- mkOverflowBypassFifo;
     Array #(Reg #(EventsPrefetcher)) perf_events <- mkDRegOR (3, unpack (0));
 
-    Bool verbose = True;
+    Bool verbose = False;
 
     rule ptlFromStToPt;
         let ptl <- st.getPTLookupEntry;

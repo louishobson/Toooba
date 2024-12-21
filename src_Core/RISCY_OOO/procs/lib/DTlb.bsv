@@ -151,7 +151,7 @@ module mkDTlb#(
     function DTlbReq#(instT) createReqForPrefetch(CapPipe vaddr),
     function CapPipe getCap(instT inst))
     (DTlb::DTlb#(instT)) provisos(Bits#(instT, a__), FShow#(instT));
-    Bool verbose = True;
+    Bool verbose = False;
 
     // TLB array
     DTlbArray tlb <- mkDTlbArray;
