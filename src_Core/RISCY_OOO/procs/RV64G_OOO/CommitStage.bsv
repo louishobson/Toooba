@@ -687,6 +687,7 @@ module mkCommitStage#(CommitInput inIfc)(CommitStage);
         !pauseCommit &&&
         rob.deqPort[0].deq_data.trap matches tagged Valid .trap
     );
+        $finish(0);
         rob.deqPort[0].deq;
         let x = rob.deqPort[0].deq_data;
         if(verbose) $display("[doCommitTrap] ", fshow(x));
