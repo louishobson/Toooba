@@ -10,7 +10,7 @@ PROC := RV64G_OOO
 # core size
 CORE_SIZE ?= SMALL
 # cache size
-CACHE_SIZE ?= LARGE
+CACHE_SIZE ?= STUMPY
 # always include perf counter
 PERF_COUNT := true
 # dram type in simulation: VC707 or AWSF1
@@ -56,7 +56,7 @@ RENAME_DEBUG ?= false
 INSTR_PREFETCHER_LOCATION ?= NONE
 INSTR_PREFETCHER_TYPE ?= SINGLE_WINDOW_TARGET
 DATA_PREFETCHER_LOCATION ?= L1
-DATA_PREFETCHER_TYPE ?= CAP_PTR
+DATA_PREFETCHER_TYPE ?= STRIDE
 
 # clk frequency depends on core size
 ifneq (,$(filter $(CORE_SIZE),TINY SMALL BOOM MEDIUM))
@@ -69,7 +69,7 @@ else
 $(error unsupported CORE_SIZE)
 endif
 
-ifeq (,$(filter $(CACHE_SIZE),TEST SMALL LARGE MC_1MB MC_2MB))
+ifeq (,$(filter $(CACHE_SIZE),TEST SMALL STUMPY LARGE MC_1MB MC_2MB))
 $(error unsupported CACHE_SIZE)
 endif
 
