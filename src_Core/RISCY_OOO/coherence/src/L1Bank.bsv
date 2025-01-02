@@ -166,7 +166,7 @@ module mkL1Bank#(
     Add#(TAdd#(tagSz, indexSz), TAdd#(lgBankNum, LgLineSzBytes), AddrSz)
 );
 
-    Bool verbose = True;
+    Bool verbose = False;
     Bool prefetchVerbose = True;
 
     L1CRqMshr#(cRqNum, wayT, tagT, procRqT) cRqMshr <- mkL1CRqMshrLocal;
@@ -353,6 +353,14 @@ endfunction
             fshow(n), " ; ",
             fshow(req)
         );
+        if (prefetchVerbose)
+            $display("%t L1D cRq creation: mshr: %d, addr: 0x%h, mshrInUse: %d/%d, isPrefetch: 0, isRetry: 1", 
+                cur_cycle, 
+                n, 
+                getLineAddr(req.addr),
+                crqMshrEnqs + 1 - crqMshrDeqs,
+                valueof(cRqNum)
+            );
     endrule
 
     // although D$ may not have cRq at every cycle
@@ -375,6 +383,14 @@ endfunction
             fshow(n), " ; ",
             fshow(r)
         );
+        if (prefetchVerbose)
+            $display("%t L1D cRq creation: mshr: %d, addr: 0x%h, mshrInUse: %d/%d, isPrefetch: 0, isRetry: 0", 
+                cur_cycle, 
+                n, 
+                getLineAddr(r.addr),
+                crqMshrEnqs + 1 - crqMshrDeqs,
+                valueof(cRqNum)
+            );
     endrule
 
     (* descending_urgency = "pRqTransfer, cRqTransfer_retry, cRqTransfer_new" *)
@@ -434,14 +450,14 @@ endfunction
         }));
         cRqIsPrefetch[n] <= True;
         // performance counter: cRq type
-       if (prefetchVerbose)
-        $display("%t L1D createPrefetchRq: mshr: %d, addr: 0x%h, mshrInUse: %d/%d", 
-            cur_cycle, 
-            n, 
-            getLineAddr(addr),
-            crqMshrEnqs + 1 - crqMshrDeqs,
-            valueof(cRqNum)
-        );
+        if (prefetchVerbose)
+            $display("%t L1D cRq creation: mshr: %d, addr: 0x%h, mshrInUse: %d/%d, isPrefetch: 1, isRetry: 0", 
+                cur_cycle, 
+                n, 
+                getLineAddr(addr),
+                crqMshrEnqs + 1 - crqMshrDeqs,
+                valueof(cRqNum)
+            );
     endrule
 
 `ifdef SECURITY_CACHES
@@ -1178,7 +1194,7 @@ endfunction
                 waitP: True
             });
             if (prefetchVerbose)
-                $display("%t L1D pRq line eviction: addr: 0x%h, wasPrefetch: %d, accessed: %d, cs: ",
+                $display("%t L1D pRq line eviction: addr: 0x%h, wasPrefetch: %d, accessed: %d, overtakeCRq: 1, cs: ",
                     cur_cycle,
                     getLineAddr(cRq.addr),
                     ram.info.other.wasPrefetch,
@@ -1210,7 +1226,7 @@ endfunction
             }, False);
             rsToPIndexQ.enq(PRq (n));
             if (prefetchVerbose &&& pRq.toState == I)
-                $display("%t L1D pRq line eviction: addr: 0x%h, wasPrefetch: %d, accessed: %d, cs: ",
+                $display("%t L1D pRq line eviction: addr: 0x%h, wasPrefetch: %d, accessed: %d, overtakeCRq: 0, cs: ",
                     cur_cycle,
                     getLineAddr(pRq.addr),
                     ram.info.other.wasPrefetch,

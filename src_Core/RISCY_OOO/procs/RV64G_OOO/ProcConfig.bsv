@@ -142,7 +142,7 @@
     `define LOG_L1_WAYS 2 // 4 ways
 
     // LLC
-    `define LOG_LLC_LINES 8 // 32KB
+    `define LOG_LLC_LINES 7 // 16KB
     `define LOG_LLC_WAYS 3 // 8 ways
 
 `endif
