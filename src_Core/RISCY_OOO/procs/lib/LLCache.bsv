@@ -308,7 +308,7 @@ module mkLLCache(LLCache);
 `ifdef NO_LOAD_RESP_E
     function Bool respLoadWithE(Bool fromMem) = False;
 `else
-    function Bool respLoadWithE(Bool fromMem) = fromMem;
+    function Bool respLoadWithE(Bool fromMem) = True;
 `endif
     LLBankWrapper cache <- mkLLBank(mkLastLvCRqMshr, mkLLPipeline, respLoadWithE);
 `endif // SELF_INV_CACHE
