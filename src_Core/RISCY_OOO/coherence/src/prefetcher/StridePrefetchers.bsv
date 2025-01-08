@@ -35,7 +35,7 @@ import GetPut::*;
 import RWBramCore::*;
 import SpecialRegs::*;
 
-`define VERBOSE True
+`define VERBOSE False
 
 module mkBlockPrefetcher#(Parameter#(numLinesEachWay) _)(Prefetcher) provisos (
     Alias#(lineCountT, Bit#(TLog#(TAdd#(numLinesEachWay, 1)))),
