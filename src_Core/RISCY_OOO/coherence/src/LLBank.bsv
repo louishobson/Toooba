@@ -36,6 +36,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import Cur_Cycle::*;
 import Vector::*;
 import FIFO::*;
 import GetPut::*;
@@ -192,7 +193,8 @@ module mkLLBank#(
     Add#(TLog#(TDiv#(childNum,2)), c__, TLog#(childNum))
 );
 
-   Bool verbose = False;
+    Bool verbose = False;
+    Bool prefetchVerbose = True;
 
     LLCRqMshr#(cRqNum, wayT, tagT, Vector#(childNum, DirPend), cRqT) cRqMshr <- mkLLMshr;
 
@@ -993,6 +995,13 @@ endfunction
             fshow(n), " ; ",
             fshow(cRq)
         );
+        if (prefetchVerbose)
+            $display("%t LL cRq hit: addr: 0x%h, cRq is prefetch: %d, wasMiss: %d",
+                cur_cycle,
+                cRq.addr,
+                cRqIsPrefetch[n],
+                isMRs
+            );
         doAssert(n == pipeOutCRqIdx, "must match pipe out cRq idx");
         doAssert(isRqFromC(cRq.id), "should be cRq from child");
         doAssert(ram.info.tag == getTag(cRq.addr) && ram.info.cs > I,
