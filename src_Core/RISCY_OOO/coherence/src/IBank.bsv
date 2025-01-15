@@ -217,7 +217,7 @@ module mkIBank#(
 `endif
 `ifdef PERFORMANCE_MONITORING
         EventsL1I events = unpack (0);
-        events.evt_LD = 1;
+        //events.evt_LD = 1;
         perf_events[0] <= events;
 `endif
         noAction;
@@ -436,7 +436,8 @@ module mkIBank#(
             isPrefetchRq: True,
             boundsOffset: 0,
             boundsLength: 0,
-            boundsVirtBase: 0
+            boundsVirtBase: 0,
+            capPerms: 0
         };
         rqToPQ.enq(cRqToP);
         if (verbose)
@@ -460,7 +461,8 @@ module mkIBank#(
             isPrefetchRq: False,
             boundsOffset: 0,
             boundsLength: 0,
-            boundsVirtBase: 0
+            boundsVirtBase: 0,
+            capPerms: 0
         };
         rqToPQ.enq(cRqToP);
        if (verbose)

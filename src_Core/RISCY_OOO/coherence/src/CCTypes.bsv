@@ -195,6 +195,10 @@ typedef struct {
     type lineT
 ) deriving(Bits, Eq, FShow);
 
+typedef struct {
+    Bool wasPrefetch;
+} PrefetchInfo deriving (Bits, Eq, FShow);
+
 // processor req/resp
 typedef struct {
     idT id;
@@ -210,6 +214,7 @@ typedef struct {
     Addr boundsOffset; //From capability sending the memory request. Used in prefetching.
     Addr boundsLength; //From capability sending the memory request. Used in prefetching.
     Addr boundsVirtBase; //From capability sending the memory request. Used in prefetching.
+    Bit#(31) capPerms; //From capability sending the memory request. Used in prefetching.
 } ProcRq#(type idT) deriving(Bits, Eq, FShow);
 
 interface L1ProcReq#(type idT);
@@ -275,6 +280,7 @@ typedef struct {
     Addr boundsOffset;
     Addr boundsLength;
     Addr boundsVirtBase;
+    Bit#(31) capPerms;
 } CRqMsg#(type idT, type childT) deriving(Bits, Eq, FShow);
 
 typedef struct {
@@ -296,6 +302,10 @@ typedef struct {
     childT child; // to which child
     Maybe#(Line) data;
     idT id; // slot id in cache
+    Bool cameFromPrefetch;
+    Addr boundsOffset;
+    Addr boundsLength;
+    Addr boundsVirtBase;
 } PRsMsg#(type idT, type childT) deriving(Bits, Eq, FShow);
 
 typedef union tagged {
@@ -337,6 +347,7 @@ typedef struct {
     Addr boundsOffset;
     Addr boundsLength;
     Addr boundsVirtBase;
+    Bit#(31) capPerms;
 } LLRq#(type cRqIdT, type dmaRqIdT, type childT) deriving(Bits, Eq, FShow);
 
 // memory msg
