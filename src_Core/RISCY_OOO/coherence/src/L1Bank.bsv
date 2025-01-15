@@ -141,8 +141,8 @@ module mkL1Bank#(
     Alias#(cRqIdxT, Bit#(TLog#(cRqNum))),
     Alias#(pRqIdxT, Bit#(TLog#(pRqNum))),
     Alias#(cacheOwnerT, Maybe#(cRqIdxT)), // actually owner cannot be pRq
-    Alias#(cacheInfoT, CacheInfo#(tagT, Msi, void, cacheOwnerT, void)),
-    Alias#(ramDataT, RamData#(tagT, Msi, void, cacheOwnerT, void, Line)),
+    Alias#(cacheInfoT, CacheInfo#(tagT, Msi, void, cacheOwnerT, PrefetchInfo)),
+    Alias#(ramDataT, RamData#(tagT, Msi, void, cacheOwnerT, PrefetchInfo, Line)),
     Alias#(procRqT, ProcRq#(procRqIdT)),
     Alias#(cRqToPT, CRqMsg#(wayT, void)),
     Alias#(cRsToPT, CRsMsg#(void)),
@@ -151,7 +151,7 @@ module mkL1Bank#(
     Alias#(pRqRsFromPT, PRqRsMsg#(wayT, void)),
     Alias#(cRqSlotT, L1CRqSlot#(wayT, tagT)), // cRq MSHR slot
     Alias#(l1CmdT, L1Cmd#(indexT, cRqIdxT, pRqIdxT)),
-    Alias#(pipeOutT, PipeOut#(wayT, tagT, Msi, void, cacheOwnerT, void, RandRepInfo, Line, l1CmdT)),
+    Alias#(pipeOutT, PipeOut#(wayT, tagT, Msi, void, cacheOwnerT, PrefetchInfo, RandRepInfo, Line, l1CmdT)),
     // requirements
     Bits#(procRqIdT, _procRqIdT),
     FShow#(procRqIdT),
@@ -220,6 +220,7 @@ module mkL1Bank#(
     Count#(Data) stCnt <- mkCount(0);
     Count#(Data) amoCnt <- mkCount(0);
     Count#(Data) ldMissCnt <- mkCount(0);
+    Count#(Data) usedPrefetchCnt <- mkCount(0);
     Count#(Data) stMissCnt <- mkCount(0);
     Count#(Data) amoMissCnt <- mkCount(0);
     Count#(Data) ldMissLat <- mkCount(0);
@@ -244,7 +245,7 @@ action
     EventsL1D events = unpack (0);
     case(op)
         Ld: begin 
-            events.evt_LD = 1;
+            //events.evt_LD = 1;
         end
         St: begin 
             //events.evt_ST = 1;
@@ -317,11 +318,19 @@ endfunction
         if (cRqMshr.isFull)  begin
             //events.evt_AMO_MISS = 1;
         end
+    `ifdef DATA_PREFETCHER_IN_L1
         events.evt_ST = prefetcher.events.evt_0;
         events.evt_ST_MISS_LAT = prefetcher.events.evt_1;
         events.evt_AMO = prefetcher.events.evt_2;
         events.evt_EVICT = prefetcher.events.evt_3;
         events.evt_TLB_FLUSH = prefetcher.events.evt_4;
+    `else
+        events.evt_ST = llcPrefetcher.events.evt_0;
+        events.evt_ST_MISS_LAT = llcPrefetcher.events.evt_1;
+        events.evt_AMO = llcPrefetcher.events.evt_2;
+        events.evt_EVICT = llcPrefetcher.events.evt_3;
+        events.evt_TLB_FLUSH = llcPrefetcher.events.evt_4;
+    `endif
         perf_events[2] <= events;
     endrule
     
@@ -391,12 +400,17 @@ endfunction
     (* descending_urgency = "pRsTransfer, cRqTransfer_retry, cRqTransfer_new" *)
     rule pRsTransfer(fromPQ.first matches tagged PRs .resp);
         fromPQ.deq;
+        if (!resp.cameFromPrefetch) begin
         pipeline.send(PRs (L1PipePRsIn {
             addr: resp.addr,
             toState: resp.toState,
             data: resp.data,
             way: resp.id
         }));
+        end
+        if (resp.data matches tagged Valid .data)
+            llcPrefetcher.reportCacheDataArrival(data, resp.addr, /*pcHash:*/0, 
+                True, resp.cameFromPrefetch, resp.boundsOffset, resp.boundsLength, resp.boundsVirtBase, /*capPerms:*/unpack(0));
        if (verbose)
         $display("%t L1 %m pRsTransfer: ", $time, fshow(resp));
     endrule
@@ -418,7 +432,8 @@ endfunction
             pcHash: ?,
             boundsOffset: getOffset(cap),
             boundsLength: saturating_truncate(getLength(cap)),
-            boundsVirtBase: getBase(cap)
+            boundsVirtBase: getBase(cap),
+            capPerms: getPerms(cap)
         };
         cRqIdxT n <- cRqMshr.cRqTransfer.getEmptyEntryInit(r);
         crqMshrEnqs <= crqMshrEnqs + 1;
@@ -548,7 +563,8 @@ endfunction
             isPrefetchRq: True,
             boundsOffset: getOffset(cap),
             boundsLength: saturating_truncate(getLength(cap)),
-            boundsVirtBase: getBase(cap)
+            boundsVirtBase: getBase(cap),
+            capPerms: getPerms(cap)
 
         };
         rqToPQ.enq(cRqToP);
@@ -572,7 +588,8 @@ endfunction
             isPrefetchRq: False,
             boundsOffset: req.boundsOffset,
             boundsLength: req.boundsLength,
-            boundsVirtBase: req.boundsVirtBase
+            boundsVirtBase: req.boundsVirtBase,
+            capPerms: req.capPerms
         };
         rqToPQ.enq(cRqToP);
        if (verbose)
@@ -626,6 +643,18 @@ endfunction
         Line curLine = ram.line;
         Line newLine = curLine;
         LineMemDataOffset dataSel = getLineMemDataOffset(req.addr);
+        if (req.op == Ld)
+        $display ("%t prefetcher Ld crqhit wasMiss %d wasPrefetch %d addr %h", $time, wasMiss, cRqIsPrefetch[n], req.addr);
+        if (ram.info.other.wasPrefetch && !cRqIsPrefetch[n] && req.op == Ld) begin
+            //Hit on a prefetched cache line!
+            $display ("%t L1 demand hit on prefetched cache line", $time);
+        `ifdef PERF_COUNT
+            usedPrefetchCnt.incr(1);
+        `endif
+            EventsL1D events = unpack (0);
+            events.evt_LD = 1;
+            perf_events[4] <= events;
+        end
         case(req.op) matches
             Ld: begin
                 if (!cRqIsPrefetch[n]) begin
@@ -686,19 +715,20 @@ endfunction
                     cs: max(ram.info.cs, req.toState),
                     dir: ?,
                     owner: succ,
-                    other: ?
+                    other: PrefetchInfo {wasPrefetch: (req.op == Ld) ? (wasMiss && cRqIsPrefetch[n]) : ram.info.other.wasPrefetch}
                 },
                 line: newLine // write new data into cache
             }, True); // hit, so update rep info
             if (!cRqIsPrefetch[n] && req.op == Ld) begin
-                prefetcher.reportAccess(req.addr, req.pcHash, HIT, req.boundsOffset, req.boundsLength, req.boundsVirtBase);
-                llcPrefetcher.reportAccess(req.addr, req.pcHash, HIT, req.boundsOffset, req.boundsLength, req.boundsVirtBase);
+                prefetcher.reportAccess(req.addr, req.pcHash, HIT, req.boundsOffset, req.boundsLength, req.boundsVirtBase, req.capPerms);
+                llcPrefetcher.reportAccess(req.addr, req.pcHash, HIT, req.boundsOffset, req.boundsLength, req.boundsVirtBase, req.capPerms);
             end
             if (req.op == Ld) begin
-                //TODO with this llcPrefetcher only sees arrival of non-prefetched lines
-                //TODO also would be good to provide whether this was a MISS to avoid triggering too many prefetches.
-                prefetcher.reportCacheDataArrival(curLine, req.addr, req.pcHash, wasMiss, cRqIsPrefetch[n], req.boundsOffset, req.boundsLength, req.boundsVirtBase);
-                llcPrefetcher.reportCacheDataArrival(curLine, req.addr, req.pcHash, wasMiss, cRqIsPrefetch[n], req.boundsOffset, req.boundsLength, req.boundsVirtBase);
+                prefetcher.reportCacheDataArrival(curLine, req.addr, req.pcHash, wasMiss, cRqIsPrefetch[n], req.boundsOffset, req.boundsLength, req.boundsVirtBase, req.capPerms);
+                if (wasMiss == False) begin
+                    llcPrefetcher.reportCacheDataArrival(curLine, req.addr, req.pcHash, 
+                        False, cRqIsPrefetch[n], req.boundsOffset, req.boundsLength, req.boundsVirtBase, req.capPerms);
+                end
             end
            if (verbose)
             $display("%t L1 %m pipelineResp: Hit func: update ram: ", $time,
@@ -758,7 +788,7 @@ endfunction
                 cs: M, // AMO always gets to M
                 dir: ?,
                 owner: succ,
-                other: ?
+                other: PrefetchInfo {wasPrefetch: False}
             },
             line: newLine // write new data into cache
         }, True); // hit, so update rep info
@@ -849,16 +879,18 @@ endfunction
                     cs: ram.info.cs,
                     dir: ?,
                     owner: Valid (n), // owner is req itself
-                    other: ?
+                    other: PrefetchInfo {wasPrefetch: False}
                 },
                 line: ram.line
             }, False);
             if (!cRqIsPrefetch[n] && procRq.op == Ld) begin
-                prefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase);
-                llcPrefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase);
+                prefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase, procRq.capPerms);
+                llcPrefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase, procRq.capPerms);
+                /*
                 EventsL1D events = unpack(0);
                 events.evt_TLB = 1;
                 perf_events[4] <= events;
+                */
             end
         endaction
         endfunction
@@ -873,7 +905,7 @@ endfunction
                     cs: I,
                     dir: ?,
                     owner: Valid (n), // owner is req itself
-                    other: ?
+                    other: PrefetchInfo {wasPrefetch: False}
                 },
                 line: ? // data is no longer used
             }, False);
@@ -886,8 +918,8 @@ endfunction
             });
             cRqMshr.pipelineResp.setData(n, ram.info.cs == M ? Valid (ram.line) : Invalid);
             if (!cRqIsPrefetch[n] && procRq.op == Ld) begin
-                prefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase);
-                llcPrefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase);
+                prefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase, procRq.capPerms);
+                llcPrefetcher.reportAccess(procRq.addr, procRq.pcHash, MISS, procRq.boundsOffset, procRq.boundsLength, procRq.boundsVirtBase, procRq.capPerms);
             end
             // send replacement resp to parent
             rsToPIndexQ.enq(CRq (n));
@@ -1088,7 +1120,7 @@ endfunction
                     cs: I, // downgraded to I
                     dir: ?,
                     owner: ram.info.owner, // keep owner to cRq
-                    other: ?
+                    other: PrefetchInfo {wasPrefetch: False}
                 },
                 line: ram.line
             }, False);
@@ -1119,7 +1151,7 @@ endfunction
                     cs: pRq.toState,
                     dir: ?,
                     owner: Invalid, // no successor
-                    other: ?
+                    other: PrefetchInfo {wasPrefetch: False}
                 },
                 line: ram.line
             }, False);
@@ -1172,7 +1204,7 @@ endfunction
                 cs: I, // downgraded to I
                 dir: ?,
                 owner: Invalid, // no successor
-                other: ?
+                other: PrefetchInfo {wasPrefetch: False}
             },
             line: ?
         }, False);
