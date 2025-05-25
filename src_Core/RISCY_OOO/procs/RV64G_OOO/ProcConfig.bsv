@@ -163,7 +163,7 @@
 
     // There is already 20 cycles of baseline latency
     `undef DRAM_LATENCY
-    `define DRAM_LATENCY 60
+    `define DRAM_LATENCY 0
 
 `endif
 
