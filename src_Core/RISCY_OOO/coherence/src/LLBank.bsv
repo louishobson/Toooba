@@ -130,6 +130,7 @@ interface LLBank#(
     method Action updateTlbVMInfo(LLCTlbId idx, VMInfo vm);
 
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsLL events;
 `endif
 endinterface
@@ -1625,12 +1626,12 @@ module mkLLBank#(
                 // so first check same addr dependency
                 if(cRqEOC matches tagged Valid .m) begin
                     // add to same addr dependency
-                    if (cRqIsPrefetch[n]) begin
-                        cRqDrop;
-                    end else begin
+                    //if (cRqIsPrefetch[n]) begin
+                    //    cRqDrop;
+                    //end else begin
                         cRqMshr.pipelineResp.setAddrSucc(m, Valid (n));
                         cRqSetDepNoCacheChange;
-                    end
+                    //end
                     if (verbose)
                     $display("%t LL %m pipelineResp: cRq: own by other cRq, same addr dep: ", $time,
                         fshow(cOwner), " ; ", fshow(cRqEOC)
