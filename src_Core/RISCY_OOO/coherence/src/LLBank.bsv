@@ -1602,14 +1602,6 @@ module mkLLBank#(
         endaction
         endfunction
 
-        function Action cRqDrop;
-        action
-            cRqMshr.pipelineResp.releaseEntry(n);
-            crqMshrDeqs <= crqMshrDeqs + 1;
-            pipeline.deqWrite(Invalid, pipeOut.ram, False);
-        endaction
-        endfunction
-
         if(ram.info.owner matches tagged Valid .cOwner) begin
             if(cOwner.mshrIdx != n) begin
                 // owner is another cRq, so must just go through tag match
@@ -1626,13 +1618,9 @@ module mkLLBank#(
                 // so first check same addr dependency
                 if(cRqEOC matches tagged Valid .m) begin
                     // add to same addr dependency
-                    //if (cRqIsPrefetch[n]) begin
-                    //    cRqDrop;
-                    //end else begin
-                        cRqMshr.pipelineResp.setAddrSucc(m, Valid (n));
-                        cRqSetDepNoCacheChange;
-                    //end
-                    if (verbose)
+                    cRqMshr.pipelineResp.setAddrSucc(m, Valid (n));
+                    cRqSetDepNoCacheChange;
+                   if (verbose)
                     $display("%t LL %m pipelineResp: cRq: own by other cRq, same addr dep: ", $time,
                         fshow(cOwner), " ; ", fshow(cRqEOC)
                     );
@@ -1640,12 +1628,8 @@ module mkLLBank#(
                 else begin
                     // must be hitting on a line being replaced
                     // add to rep dependency
-                    //if (cRqIsPrefetch[n]) begin
-                    //    cRqDrop;
-                    //end else begin
-                        cRqMshr.pipelineResp.setRepSucc(cOwner.mshrIdx, Valid (n));
-                        cRqSetDepNoCacheChange;
-                    //end
+                    cRqMshr.pipelineResp.setRepSucc(cOwner.mshrIdx, Valid (n));
+                    cRqSetDepNoCacheChange;
                    if (verbose)
                     $display("%t LL %m pipelineResp: cRq: own by other cRq, rep dep: ", $time,
                         fshow(cOwner)
@@ -1719,12 +1703,8 @@ module mkLLBank#(
                     fshow(cState), " ; ",
                     fshow(cRqEOC)
                 );
-                //if (cRqIsPrefetch[n]) begin
-                //    cRqDrop;
-                //end else begin
-                    cRqMshr.pipelineResp.setAddrSucc(m, Valid (n));
-                    cRqSetDepNoCacheChange;
-                //end
+                cRqMshr.pipelineResp.setAddrSucc(m, Valid (n));
+                cRqSetDepNoCacheChange;
                 if (prefetchVerbose)
                     $display("%t LL cRq dependency: mshr: %d, depMshr: %d, addr: 0x%h, cRq is prefetch: %d, reqCs: ",
                         cur_cycle,

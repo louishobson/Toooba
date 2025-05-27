@@ -121,6 +121,7 @@ interface L1Bank#(
     method Action setPerfStatus(Bool stats);
     method Data getPerfData(L1DPerfType t);
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsL1D events;
 `endif
 endinterface
@@ -200,7 +201,7 @@ module mkL1Bank#(
     Reg#(Maybe#(LineAddr)) linkAddr = linkAddrEhr[0]; // normal processing use port 0
     Reg#(Maybe#(LineAddr)) linkAddrRst = linkAddrEhr[1]; // reset by outside use port 1
 
-    Reg#(Bit#(64)) crqMshrEnqs <- mkReg(0);
+    Reg#(Bit#(64)) crqMshrEnqs <- mkConfigReg(0);
     Reg#(Bit#(64)) crqMshrDeqs <- mkConfigReg(0);
 
     // we process AMO resp in a new cycle to cut critical path
