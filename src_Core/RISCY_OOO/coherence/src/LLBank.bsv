@@ -1640,12 +1640,12 @@ module mkLLBank#(
                 else begin
                     // must be hitting on a line being replaced
                     // add to rep dependency
-                    if (cRqIsPrefetch[n]) begin
-                        cRqDrop;
-                    end else begin
+                    //if (cRqIsPrefetch[n]) begin
+                    //    cRqDrop;
+                    //end else begin
                         cRqMshr.pipelineResp.setRepSucc(cOwner.mshrIdx, Valid (n));
                         cRqSetDepNoCacheChange;
-                    end
+                    //end
                    if (verbose)
                     $display("%t LL %m pipelineResp: cRq: own by other cRq, rep dep: ", $time,
                         fshow(cOwner)
@@ -1719,12 +1719,12 @@ module mkLLBank#(
                     fshow(cState), " ; ",
                     fshow(cRqEOC)
                 );
-                if (cRqIsPrefetch[n]) begin
-                    cRqDrop;
-                end else begin
+                //if (cRqIsPrefetch[n]) begin
+                //    cRqDrop;
+                //end else begin
                     cRqMshr.pipelineResp.setAddrSucc(m, Valid (n));
                     cRqSetDepNoCacheChange;
-                end
+                //end
                 if (prefetchVerbose)
                     $display("%t LL cRq dependency: mshr: %d, depMshr: %d, addr: 0x%h, cRq is prefetch: %d, reqCs: ",
                         cur_cycle,
