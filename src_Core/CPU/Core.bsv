@@ -221,7 +221,9 @@ interface Core;
 `endif
 
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready, always_enabled *)
     method Action events_llc(EventsLL events);
+    (* always_ready, always_enabled *)
     method Action events_tgc(EventsTGC events);
 `endif
 endinterface
@@ -1610,11 +1612,11 @@ module mkCore#(CoreId coreId)(Core);
         endinterface
     endinterface
 
-    method Action shouldFlushLLCTlb if (flush_llctlb);
+    method Action shouldFlushLLCTlb if (False);
         flush_llctlb <= False;
     endmethod
     method ActionValue#(VMInfo) shouldUpdateLLCTlbVMInfo if (
-        update_llctlb_vm_info matches tagged Valid .vmInfo
+        False && update_llctlb_vm_info matches tagged Valid .vmInfo
     );
         update_llctlb_vm_info <= Invalid; 
         return vmInfo;
