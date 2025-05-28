@@ -1616,10 +1616,9 @@ module mkCore#(CoreId coreId)(Core);
         flush_llctlb <= False;
     endmethod
     method ActionValue#(VMInfo) shouldUpdateLLCTlbVMInfo if (
-        False && update_llctlb_vm_info matches tagged Valid .vmInfo
+        False
     );
-        update_llctlb_vm_info <= Invalid; 
-        return vmInfo;
+        return ?;
     endmethod
 
     interface tlbToMem = l2Tlb.toMem;
