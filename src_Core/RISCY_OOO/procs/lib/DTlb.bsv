@@ -131,6 +131,7 @@ interface DTlb#(type instT);
     // performance
     interface Perf#(L1TlbPerfType) perf;
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsL1D events;
 `endif
 endinterface
@@ -153,7 +154,7 @@ module mkDTlb#(
     function TlbReq createReqForPrefetch(PrefetcherReqToTlb prefetch),
     function CapPipe getCap(instT inst))
     (DTlb::DTlb#(instT)) provisos(Bits#(instT, a__), FShow#(instT));
-    Bool verbose = False;
+    Bool verbose = True;
 
     // TLB array
     DTlbArray tlb <- mkDTlbArray;
