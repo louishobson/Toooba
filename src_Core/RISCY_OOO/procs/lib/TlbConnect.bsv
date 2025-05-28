@@ -46,7 +46,7 @@ module mkTlbConnect#(
     L2TlbToChildren l2
 )(Empty);
     // give priority to DTlb req
-    (* descending_urgency = "sendDTlbReq, sendITlbReq, sendLLCTlbReq" *)
+    (* descending_urgency = "sendDTlbReq, sendITlbReq" *)
     rule sendDTlbReq;
         DTlbRqToP r <- toGet(d.rqToP).get;
         l2.rqFromC.put(L2TlbRqFromC {
