@@ -150,6 +150,36 @@ module mkProc (Proc_IFC);
    end
    mkL1LLConnect(llc.to_child, l1);
 
+   // Forward L1 prefetcher broadcasts to L2
+   Fifo#(4, Tuple2#(PrefetcherBroadcastData, Bit#(TLog#(CoreNum)))) prefetcherBroadcastData <- mkBypassFifo;
+   for(Integer i = 0; i < valueof(CoreNum); i = i+1) begin
+       rule queuePrefetcherBroadcastDataFromL1;
+           let x <- core[i].getPrefetcherBroadcastData;
+           prefetcherBroadcastData.enq(tuple2(x, fromInteger(i)));
+       endrule
+   end
+   rule forwardPrefetcherBroadcastDataToLL;
+      prefetcherBroadcastData.deq;
+      llc.sendDataPrefetcherBroadcastData(prefetcherBroadcastData.first);
+   endrule
+
+   // ================================================================
+   // Prefetcher tlb to Core
+
+   Vector#(CoreNum, ParentToLLCTlb#(LLCTlbReqIdx, void)) toLLCTlbs = ?;
+   for(Integer i = 0; i < valueof(CoreNum); i = i+1) begin
+      toLLCTlbs[i] = core[i].toLLCTlb;
+      rule flushLLCTlb;
+         let x <- core[i].shouldFlushLLCTlb; // Creates an implicit condition 
+         llc.flushTlb(fromInteger(i));
+      endrule
+      rule updateLLCTlbVMInfo;
+         let vmInfo <- core[i].shouldUpdateLLCTlbVMInfo; // Creates an implicit condition 
+         llc.updateTlbVMInfo(fromInteger(i), vmInfo);
+      endrule
+   end
+   let llc_tlb_connect <- mkLLCTlbConnect(llc.to_tlb, toLLCTlbs);
+   
    // ================================================================
    // LLC's DMA connections
 
@@ -279,6 +309,17 @@ module mkProc (Proc_IFC);
 `endif
 
    // ================================================================
+   // DRAM latency injection
+
+   NumProxy#(64) depthProxy = error("Do not look inside proxy");
+   let master_0_delay = llc_axi4_adapter.mem_master;
+   if (valueOf(DramLatency) != 0) begin
+      let delayshim <- mkAXI4_DelayShim(depthProxy, fromInteger(valueOf(DramLatency)));
+      mkConnection(delayshim.slave, llc_axi4_adapter.mem_master);
+      master_0_delay = delayshim.master;
+   end
+
+   // ================================================================
    // ================================================================
    // ================================================================
    // INTERFACE
@@ -302,7 +343,7 @@ module mkProc (Proc_IFC);
    // SoC fabric connections
 
    // Fabric master interface for memory (from LLC)
-   interface  master0 = llc_axi4_adapter.mem_master;
+   interface  master0 = master_0_delay;
 
    // Fabric master interface for IO (from MMIOPlatform)
    interface  master1 = mmio_axi4_adapter.mmio_master;

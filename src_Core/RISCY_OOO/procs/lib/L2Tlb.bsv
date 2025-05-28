@@ -107,6 +107,7 @@ interface L2TlbToChildren;
     // flush with I/D TLB
     interface Put#(void) iTlbReqFlush;
     interface Put#(void) dTlbReqFlush;
+    interface Put#(void) llcTlbReqFlush;
     interface Get#(void) flushDone;
 endinterface
 
@@ -787,6 +788,11 @@ module mkL2Tlb(L2Tlb::L2Tlb);
         interface Put dTlbReqFlush;
             method Action put(void x) if(!dFlushReq);
                 dFlushReq <= True;
+            endmethod
+        endinterface
+        interface Put llcTlbReqFlush;
+            method Action put(void x);
+                noAction;
             endmethod
         endinterface
         interface Get flushDone = toGet(flushDoneQ);

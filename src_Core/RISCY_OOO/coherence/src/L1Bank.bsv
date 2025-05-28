@@ -109,6 +109,8 @@ interface L1Bank#(
     interface L1ProcReq#(procRqIdT) procReq;
     // reset link addr
     method Action resetLinkAddr;
+    // get prefetcher broadcast data
+    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData;
     // detect deadlock: only in use when macro CHECK_DEADLOCK is defined
     interface Get#(L1CRqStuck) cRqStuck;
     interface Get#(L1PRqStuck) pRqStuck;
@@ -695,6 +697,27 @@ endfunction
             fshow(n), " ; ",
             fshow(req)
         );
+        CLine cline = ram.line;
+        Bit#(3) nCap = foldl(add, 0, map(zeroExtend, map(pack, cline.tag)));
+        if (prefetchVerbose)
+            $display("%t L1D cRq hit: mshr: %d, addr: 0x%h, cRq is prefetch: %d, wasMiss: %d, pipeCs: ",
+                cur_cycle,
+                n,
+                req.addr,
+                cRqIsPrefetch[n],
+                wasMiss,
+                fshow(ram.info.cs),
+                ", reqCs: ",
+                fshow(req.toState),
+                ", saveCs: ",
+                fshow(max(ram.info.cs, req.toState)),
+                ", op: ",
+                fshow(req.op),
+                ", nCap: ",
+                nCap,
+                ", data: ",
+                fshow(cline)
+            );
         // check tag & cs: even this function is called by pRs, tag should match,
         // because tag is written into cache before sending req to parent
         doAssert(ram.info.tag == getTag(req.addr) && enoughCacheState(ram.info.cs, req.toState),
@@ -1416,6 +1439,11 @@ endfunction
         linkAddrRst <= Invalid;
     endmethod
 
+    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData;
+        let x <- prefetcher.getBroadcastData;
+        return x;
+    endmethod
+
     interface Get cRqStuck;
         method ActionValue#(L1CRqStuck) get;
             let s <- cRqMshr.stuck.get;
@@ -1678,6 +1706,12 @@ module mkL1Cache#(
         for(Integer i = 0; i < valueof(bankNum); i = i+1) begin
             banks[i].resetLinkAddr;
         end
+    endmethod
+
+    // TODO: need to use a crossbar if we want more than one bank
+    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData;
+        let x <- banks[0].getPrefetcherBroadcastData;
+        return x;
     endmethod
 
     method Action flush;
