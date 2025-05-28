@@ -92,6 +92,7 @@ interface LLCTlb;
     // req/resp with L2 TLB
     interface LLCTlbToParent#(LLCTlbReqIdx, void) toParent;
     `ifdef PERFORMANCE_MONITORING
+        (* always_ready *)
         method EventsLL events;
     `endif
 endinterface
@@ -110,7 +111,7 @@ typedef union tagged {
 } LLCTlbWait deriving(Bits, Eq, FShow);
 
 module mkLLCTlb(LLCTlb);
-    Bool verbose = False;
+    Bool verbose = True;
 
     // TLB array
     LLCTlbArray tlb <- mkLLCTlbArray;

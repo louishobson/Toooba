@@ -36,15 +36,7 @@ import Vector::*;
 import CrossBar::*;
 import BuildVector::*;
 
-module mkTlbConnect#(
-    ITlbToParent i, 
-    DTlbToParent d, 
-    Get#(LLCTlbRqToP#(LLCTlbReqIdx)) rqFromLLCTlb, 
-    Put#(LLCTlbRsFromP#(LLCTlbReqIdx)) rsToLLCTlb, 
-    Get#(void) flushRqFromLLCTlb, 
-    Put#(void) flushRsToLLCTlb, 
-    L2TlbToChildren l2
-)(Empty);
+module mkTlbConnect#(ITlbToParent i, DTlbToParent d, L2TlbToChildren l2)(Empty);
     // give priority to DTlb req
     (* descending_urgency = "sendDTlbReq, sendITlbReq" *)
     rule sendDTlbReq;
@@ -78,14 +70,6 @@ module mkTlbConnect#(
         i.rsFromP.enq(ITlbRsFromP {entry: r.entry});
     endrule
 
-    rule sendRsToLLCTlb(l2.rsToC.first.child matches tagged LLC .id);
-        L2TlbRsToC r <- toGet(l2.rsToC).get;
-        rsToLLCTlb.put(LLCTlbRsFromP {
-            entry: r.entry,
-            id: id
-        });
-    endrule
-
     mkConnection(d.flush.request, l2.dTlbReqFlush);
     mkConnection(i.flush.request, l2.iTlbReqFlush);
 
@@ -94,42 +78,4 @@ module mkTlbConnect#(
         d.flush.response.put(?);
         i.flush.response.put(?);
     endrule
-endmodule
-
-module mkLLCTlbConnect#(
-    LLCTlbToParent#(CombinedLLCTlbReqIdx, LLCTlbId) llcTlb, 
-    Vector#(CoreNum, ParentToLLCTlb#(LLCTlbReqIdx, void)) l2Tlbs
-)(Empty);
-    // Crossbar from L2TLBs into the LLC
-    function XBarDstInfo#(Bit#(0), LLCTlbRsFromP#(CombinedLLCTlbReqIdx)) getL2TlbRsDstInfo(LLCTlbId idx, LLCTlbRsFromP#(LLCTlbReqIdx) rs);
-        return XBarDstInfo { idx: 0, data: LLCTlbRsFromP { entry: rs.entry, id: {rs.id, extend(idx)} } };
-    endfunction
-    function Get#(LLCTlbRsFromP#(LLCTlbReqIdx)) l2TlbRsGet(ParentToLLCTlb#(LLCTlbReqIdx, void) l2Tlb) = l2Tlb.lookup.response;
-    mkXBar(getL2TlbRsDstInfo, map(l2TlbRsGet, l2Tlbs), vec(llcTlb.lookup.response));
-
-    // Don't bother with a crossbar for flush responses
-    for (Integer i=0; i < valueOf(CoreNum); i=i+1) begin
-        rule doForwardFlushRs;
-            let x <- l2Tlbs[i].flush.response.get;
-            llcTlb.flush.response.put(fromInteger(i));
-        endrule
-    end
-
-    // Forward requests to the correct core's TLB
-    rule doForwardRq;
-        let rq <- llcTlb.lookup.request.get;
-        LLCTlbId idx = truncate(rq.id);
-        l2Tlbs[idx].lookup.request.put(LLCTlbRqToP {
-            vpn: rq.vpn,
-            id: truncateLSB(rq.id)
-        });
-    endrule
-
-    // Forward flush requests to the correct core's TLB
-    rule doForwardFlushRq;
-        let idx <- llcTlb.flush.request.get;
-        l2Tlbs[idx].flush.request.put(?);
-    endrule
-
-    
 endmodule

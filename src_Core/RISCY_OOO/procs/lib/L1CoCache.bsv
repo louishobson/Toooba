@@ -189,9 +189,9 @@ interface DCoCache;
     method Action flush;
     method Bool flush_done;
     method Action resetLinkAddr;
-    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData;
     interface Perf#(L1DPerfType) perf;
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsL1D events;
 `endif
 
@@ -254,11 +254,6 @@ module mkDCoCache#(L1ProcResp#(DProcReqId) procResp, TlbToPrefetcher toPrefetche
 
     method Action resetLinkAddr;
         cache.resetLinkAddr;
-    endmethod
-
-    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData;
-        let x <- cache.getPrefetcherBroadcastData;
-        return x;
     endmethod
 
     interface Perf perf;
@@ -391,6 +386,7 @@ interface ICoCache;
     method Bool flush_done;
     interface Perf#(L1IPerfType) perf;
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsL1I events;
 `endif
 

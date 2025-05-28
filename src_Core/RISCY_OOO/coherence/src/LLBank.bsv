@@ -116,19 +116,11 @@ interface LLBank#(
     interface ParentCacheToChild#(cRqIdT, Bit#(TLog#(childNum))) to_child;
     interface DmaServer#(dmaRqIdT) dma;
     interface MemFifoClient#(LdMemRqId#(Bit#(TLog#(cRqNum))), void) to_mem;
-    interface LLCTlbToParent#(CombinedLLCTlbReqIdx, LLCTlbId) to_tlb;
-    // Training data from L1 prefetchers
-    method Action sendDataPrefetcherBroadcastData(Tuple2#(PrefetcherBroadcastData, LLCTlbId) data);
     // detect deadlock: only in use when macro CHECK_DEADLOCK is defined
     interface Get#(LLCRqStuck#(childNum, cRqIdT, dmaRqIdT)) cRqStuck;
     // performance
     method Action setPerfStatus(Bool stats);
     method Data getPerfData(LLCPerfType t);
-
-    // Prefetcher TLB interface
-    method Action flushTlb(LLCTlbId idx);
-    method Action updateTlbVMInfo(LLCTlbId idx, VMInfo vm);
-
 `ifdef PERFORMANCE_MONITORING
     (* always_ready *)
     method EventsLL events;
@@ -265,48 +257,15 @@ module mkLLBank#(
     Vector#(cRqNum, Reg#(PrefetchAuxData)) cRqPrefetchAuxData <- replicateM(mkReg(?));
 
     // Create TLBs for data prefetchers
-    Vector#(CoreNum, LLCTlb) dataLLCTlbs <- replicateM(mkLLCTlb);
-    function module#(CheriPrefetcher) mkmkLLDPrefetcher(LLCTlb tlb);
-        return mkLLDPrefetcher(tlb.toPrefetcher);
+    function module#(CheriPrefetcher) mkmkLLDPrefetcher(Integer i);
+        return mkCheriPrefetcherAdapter(mkDoNothingPrefetcher);
     endfunction
     function module#(CheriPrefetcher) mkmkLLIPrefetcher(Integer i);
         return mkCheriPrefetcherAdapter(mkLLIPrefetcher);
     endfunction
 
-    // XBar for TLB requests to parent TLB
-    RWire#(rqToL2TlbT) rqToL2TlbWire <- mkRWire;
-    function XBarDstInfo#(Bit#(0), rqToL2TlbT) getTlbRqDstInfo(LLCTlbId idx, LLCTlbRqToP#(LLCTlbReqIdx) rq);
-        return XBarDstInfo { idx: 0, data: LLCTlbRqToP { vpn: rq.vpn, id: {rq.id, extend(idx)} } };
-    endfunction
-    function Get#(LLCTlbRqToP#(LLCTlbReqIdx)) tlbRqGet(LLCTlb tlb) = tlb.toParent.lookup.request;
-    mkXBar(getTlbRqDstInfo, map(tlbRqGet, dataLLCTlbs), vec(toPut(rqToL2TlbWire)));
-
-    // We don't really need a crossbar for TLB flush requests
-    RWire#(LLCTlbId) flushRqToL2TlbWire <- mkRWire;
-    for (Integer i=0; i < valueOf(CoreNum); i=i+1) begin
-        rule doForwardL2TlbFlushRq;
-            let x <- dataLLCTlbs[i].toParent.flush.request.get;
-            flushRqToL2TlbWire.wset(fromInteger(i));
-        endrule
-    end
-
-    // Function for responses from parent TLBs
-    function Action doForwardL2TlbResp(LLCTlbRsFromP#(CombinedLLCTlbReqIdx) rs);
-    action
-        LLCTlbId id = truncate(rs.id);
-        dataLLCTlbs[id].toParent.lookup.response.put(LLCTlbRsFromP {entry: rs.entry, id: truncateLSB(rs.id)});
-    endaction
-    endfunction
-
-    // Function for flush responses from parent TLBs
-    function Action doForwardL2TlbFlushResp(LLCTlbId rs);
-    action
-        dataLLCTlbs[rs].toParent.flush.response.put(?);
-    endaction
-    endfunction
-
     // Create prefetchers
-    PrefetcherVector#(CoreNum) dataPrefetchers <- mkCheriPrefetcherVector(map(mkmkLLDPrefetcher, dataLLCTlbs));
+    PrefetcherVector#(CoreNum) dataPrefetchers <- mkCheriPrefetcherVector(map(mkmkLLDPrefetcher, genVector));
     PrefetcherVector#(CoreNum) instrPrefetchers <- mkCheriPrefetcherVector(map(mkmkLLIPrefetcher, genVector));
     Fifo#(16, cRqFromCT) overflowPrefetchQueue <- mkOverflowPipelineFifo;
 
@@ -381,13 +340,6 @@ module mkLLBank#(
             //events.evt_LD = 1;
             //perf_events[2] <= events;
         end
-    endrule
-
-    function EventsLL foldLLCTlbPerfEvents(EventsLL e, LLCTlb llcTlb);
-        return unpack(pack(e) | pack(llcTlb.events));
-    endfunction
-    rule foldInLLCTlbPerfEvents;
-        perf_events[5] <= foldl(foldLLCTlbPerfEvents, unpack(0), dataLLCTlbs);
     endrule
 `endif
     
@@ -1940,17 +1892,6 @@ module mkLLBank#(
 `endif
     endinterface
 
-    interface LLCTlbToParent to_tlb;
-        interface Client lookup;
-            interface request = toGet(rqToL2TlbWire);
-            interface response = toPut(doForwardL2TlbResp);
-        endinterface
-        interface Client flush;
-            interface request = toGet(flushRqToL2TlbWire);
-            interface response = toPut(doForwardL2TlbFlushResp);
-        endinterface
-    endinterface
-
     interface MemFifoClient to_mem;
         interface toM = toFifoDeq(toMQ);
         interface rsFromM = toFifoEnq(rsFromMQ);
@@ -1971,17 +1912,6 @@ module mkLLBank#(
             };
         endmethod
     endinterface
-
-    method Action sendDataPrefetcherBroadcastData(Tuple2#(PrefetcherBroadcastData, LLCTlbId) data);
-        dataPrefetchers.sendBroadcastData(tpl_2(data), tpl_1(data));
-    endmethod
-
-    method Action flushTlb(LLCTlbId idx);
-        dataLLCTlbs[idx].flush;
-    endmethod
-    method Action updateTlbVMInfo(LLCTlbId idx, VMInfo vm);
-        dataLLCTlbs[idx].updateVMInfo(vm);
-    endmethod
 
     method Action setPerfStatus(Bool stats);
 `ifdef PERF_COUNT

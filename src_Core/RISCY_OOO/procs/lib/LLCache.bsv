@@ -256,15 +256,12 @@ interface LLCache;
     interface ParentCacheToChild#(LLCRqId, LLChild) to_child;
     interface DmaServer#(LLCDmaReqId) dma;
     interface MemFifoClient#(LdMemRqId#(LLCRqMshrIdx), void) to_mem;
-    interface LLCTlbToParent#(CombinedLLCTlbReqIdx, LLCTlbId) to_tlb;
-    method Action sendDataPrefetcherBroadcastData(Tuple2#(PrefetcherBroadcastData, Bit#(TLog#(CoreNum))) data);
-    method Action flushTlb(LLCTlbId idx);
-    method Action updateTlbVMInfo(LLCTlbId idx, VMInfo vm);
     // detect deadlock: only in use when macro CHECK_DEADLOCK is defined
     interface Get#(LLCStuck) cRqStuck;
     // performance
     interface Perf#(LLCPerfType) perf;
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsLL events;
 `endif
 endinterface
@@ -444,15 +441,7 @@ module mkLLCache(LLCache);
     interface to_child = cache.to_child;
     interface dma = cache.dma;
     interface to_mem = cache.to_mem;
-    interface to_tlb = cache.to_tlb;
     interface cRqStuck = cache.cRqStuck;
-
-    method Action flushTlb(LLCTlbId idx);
-        cache.flushTlb(idx);
-    endmethod
-    method Action updateTlbVMInfo(LLCTlbId idx, VMInfo vm);
-        cache.updateTlbVMInfo(idx, vm);
-    endmethod
 
 `endif // SECURITY
 
@@ -486,9 +475,4 @@ module mkLLCache(LLCache);
 `ifdef PERFORMANCE_MONITORING
     method EventsLL events = cache.events;
 `endif
-
-    method Action sendDataPrefetcherBroadcastData(Tuple2#(PrefetcherBroadcastData, Bit#(TLog#(CoreNum))) data);
-        cache.sendDataPrefetcherBroadcastData(data);
-    endmethod
-
 endmodule
