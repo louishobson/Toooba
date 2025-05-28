@@ -176,10 +176,16 @@ interface Core;
     // coherent caches to LLC
     interface ChildCacheToParent#(L1Way, void) dCacheToParent;
     interface ChildCacheToParent#(L1Way, void) iCacheToParent;
+    // Core to Prefetcher TLB in the LLC
+    interface ParentToLLCTlb#(LLCTlbReqIdx, void) toLLCTlb;
+    method Action shouldFlushLLCTlb;
+    method ActionValue#(VMInfo) shouldUpdateLLCTlbVMInfo;
     // DMA to LLC
     interface TlbMemClient tlbToMem;
     // MMIO
     interface MMIOCoreToPlatform mmioToPlatform;
+    // prefetcher broadcast data
+    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData;
     // stats enable
     method ActionValue#(Bool) sendDoStats;
     method Action recvDoStats(Bool x);
@@ -552,12 +558,26 @@ module mkCore#(CoreId coreId)(Core);
 
     // L2 TLB
     L2Tlb l2Tlb <- mkL2Tlb;
-    mkTlbConnect(iTlb.toParent, dTlb.toParent, l2Tlb.toChildren);
+    Fifo#(1, LLCTlbRqToP#(LLCTlbReqIdx)) rqFromLLCTlbQ <- mkCFFifo;
+    Fifo#(1, LLCTlbRsFromP#(LLCTlbReqIdx)) rsToLLCTlbQ <- mkCFFifo;
+    Fifo#(1, void) flushRqFromLLCTlbQ <- mkCFFifo;
+    Fifo#(1, void) flushRsToLLCTlbQ <- mkCFFifo;
+    mkTlbConnect(
+        iTlb.toParent, 
+        dTlb.toParent, 
+        toGet(rqFromLLCTlbQ), 
+        toPut(rsToLLCTlbQ), 
+        toGet(flushRqFromLLCTlbQ), 
+        toPut(flushRsToLLCTlbQ), 
+        l2Tlb.toChildren
+    );
 
     // flags to flush
-    Reg#(Bool)  flush_tlbs <- mkReg(False);
-    Reg#(Bool)  update_vm_info <- mkReg(False);
-    Reg#(Bool)  flush_reservation <- mkReg(False);
+    Reg#(Bool) flush_tlbs <- mkReg(False);
+    Reg#(Bool) flush_llctlb <- mkReg(False);
+    Reg#(Bool) update_vm_info <- mkReg(False);
+    Reg#(Maybe#(VMInfo)) update_llctlb_vm_info <- mkReg(Invalid);
+    Reg#(Bool) flush_reservation <- mkReg(False);
 
 `ifdef SECURITY_OR_INCLUDE_GDB_CONTROL
     Reg#(Bool)  flush_caches <- mkReg(False);
@@ -674,6 +694,7 @@ module mkCore#(CoreId coreId)(Core);
         method setFlushTlbs;
            action
               flush_tlbs <= True;
+              flush_llctlb <= True;
               // $display ("%0d: %m.commitInput.setFlushTlbs", cur_cycle);
            endaction
         endmethod
@@ -810,6 +831,7 @@ module mkCore#(CoreId coreId)(Core);
             iTlb.updateVMInfo(vmI);
             dTlb.updateVMInfo(vmD);
             l2Tlb.updateVMInfo(vmI, vmD);
+            update_llctlb_vm_info <= Valid(vmD);
            // $display ("%0d: %m.rule prepareCachesAndTlbs: updating VMInfo", cur_cycle);
         end
     endrule
@@ -1194,6 +1216,31 @@ module mkCore#(CoreId coreId)(Core);
      EventsL1D dmem_evts = unpack(pack(dMem.events) | pack(dTlb.events));
      EventsTGC tgc_evts = events_tgc_reg;
      EventsLL llmem_evts = unpack(pack(events_llc_reg) | pack(l2Tlb.events));
+
+     core_evts.evt_TRAP = dmem_evts.evt_AMO;
+     core_evts.evt_JAL = dmem_evts.evt_AMO_MISS;
+     core_evts.evt_JALR = dmem_evts.evt_AMO_MISS_LAT;
+
+     core_evts.evt_REDIRECT = llmem_evts.evt_EVICT;
+     tgc_evts.evt_EVICT = llmem_evts.evt_TLB_FLUSH;
+     tgc_evts.evt_WRITE = llmem_evts.evt_ST;
+
+     core_evts.evt_BRANCH = (rob.isFull_ehrPort0) ? 1 : 0;
+
+     tgc_evts.evt_READ = events_llc_reg.evt_TLB;
+     tgc_evts.evt_READ_MISS = events_llc_reg.evt_TLB_MISS;
+
+
+        /*
+     tgc_evts.evt_READ = dmem_evts.evt_TLB_FLUSH;
+     tgc_evts.evt_READ_MISS = dmem_evts.evt_ST_MISS_LAT;
+     tgc_evts.evt_WRITE = dmem_evts.evt_AMO;
+     tgc_evts.evt_WRITE_MISS = dmem_evts.evt_AMO;
+     tgc_evts.evt_EVICT = dmem_evts.evt_EVICT;
+     dmem_evts.evt_TLB = llmem_evts.evt_EVICT;
+     core_evts.evt_MEM_CAP_LOAD_TAG_SET = llmem_evts.evt_ST;
+     imem_evts.evt_LD = llmem_evts.evt_ST;
+     */
      Maybe#(EventsTransExe) mab_trans_exe = tagged Invalid;
 
 
@@ -1554,9 +1601,34 @@ module mkCore#(CoreId coreId)(Core);
     interface dCacheToParent = dMem.to_parent;
     interface iCacheToParent = iMem.to_parent;
 
+    interface ParentToLLCTlb toLLCTlb;
+        interface Server lookup;
+            interface request = toPut(rqFromLLCTlbQ);
+            interface response = toGet(rsToLLCTlbQ);
+        endinterface
+        interface Server flush;
+            interface request = toPut(flushRqFromLLCTlbQ);
+            interface response = toGet(flushRsToLLCTlbQ);
+        endinterface
+    endinterface
+
+    method Action shouldFlushLLCTlb if (False);
+        flush_llctlb <= False;
+    endmethod
+    method ActionValue#(VMInfo) shouldUpdateLLCTlbVMInfo if (
+        False
+    );
+        return ?;
+    endmethod
+
     interface tlbToMem = l2Tlb.toMem;
 
     interface mmioToPlatform = mmio.toP;
+
+    method ActionValue#(PrefetcherBroadcastData) getPrefetcherBroadcastData; 
+        let x <- dMem.getPrefetcherBroadcastData;
+        return x;
+    endmethod
 
     method sendDoStats = csrf.sendDoStats;
     method recvDoStats = csrf.recvDoStats;
