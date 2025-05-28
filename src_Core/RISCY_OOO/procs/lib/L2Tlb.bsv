@@ -124,6 +124,7 @@ interface L2Tlb;
     // performace
     interface Perf#(L2TlbPerfType) perf;
 `ifdef PERFORMANCE_MONITORING
+    (* always_ready *)
     method EventsLL events;
 `endif
 endinterface
@@ -146,7 +147,7 @@ typedef union tagged {
 
 (* synthesize *)
 module mkL2Tlb(L2Tlb::L2Tlb);
-    Bool verbose = False;
+    Bool verbose = True;
    
     // set associative TLB for 4KB pages
     L2SetAssocTlb tlb4KB <- mkL2SetAssocTlb;
@@ -163,9 +164,8 @@ module mkL2Tlb(L2Tlb::L2Tlb);
     // flush
     Reg#(Bool) iFlushReq <- mkReg(False);
     Reg#(Bool) dFlushReq <- mkReg(False);
-    Reg#(Bool) llcFlushReq <- mkReg(False);
     Reg#(Bool) waitFlushDone <- mkReg(False);
-    Bool flushing = iFlushReq && dFlushReq && llcFlushReq;
+    Bool flushing = iFlushReq && dFlushReq;
     Fifo#(1, void) flushDoneQ <- mkCFFifo;
 
     // req/resp with I/D TLBs
@@ -319,7 +319,6 @@ module mkL2Tlb(L2Tlb::L2Tlb);
         flushDoneQ.enq(?);
         iFlushReq <= False;
         dFlushReq <= False;
-        llcFlushReq <= False;
         if (verbose) $display("%t L2TLB done flush", $time);
     endrule
 
@@ -365,7 +364,7 @@ module mkL2Tlb(L2Tlb::L2Tlb);
 
         // get correct VM info
         VMInfo vm_info = cRq.child == I ? vm_info_I : vm_info_D;
-        //doAssert(vm_info.sv39, "must be in sv39 mode");
+        doAssert(vm_info.sv39, "must be in sv39 mode");
         // ^ Send a specifically-tagged response to say the TLb was disabled
 
         // get resp from 4KB TLB and mega-giga TLB
@@ -793,7 +792,7 @@ module mkL2Tlb(L2Tlb::L2Tlb);
         endinterface
         interface Put llcTlbReqFlush;
             method Action put(void x) if(!llcFlushReq);
-                llcFlushReq <= True;
+                noAction;
             endmethod
         endinterface
         interface Get flushDone = toGet(flushDoneQ);

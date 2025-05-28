@@ -65,15 +65,6 @@ module mkTlbConnect#(
         });
     endrule
 
-    rule sendLLCTlbReq;
-        LLCTlbRqToP#(LLCTlbReqIdx) r <- rqFromLLCTlb.get;
-        l2.rqFromC.put(L2TlbRqFromC {
-            child: LLC(r.id),
-            vpn: r.vpn,
-            isPrefetch: True
-        });
-    endrule
-
     rule sendRsToDTlb(l2.rsToC.first.child matches tagged D .id);
         L2TlbRsToC r <- toGet(l2.rsToC).get;
         d.ldTransRsFromP.enq(DTlbTransRsFromP {
@@ -97,13 +88,11 @@ module mkTlbConnect#(
 
     mkConnection(d.flush.request, l2.dTlbReqFlush);
     mkConnection(i.flush.request, l2.iTlbReqFlush);
-    mkConnection(flushRqFromLLCTlb, l2.llcTlbReqFlush);
 
     rule sendFlushDone;
         let x <- l2.flushDone.get;
         d.flush.response.put(?);
         i.flush.response.put(?);
-        flushRsToLLCTlb.put(?);
     endrule
 endmodule
 
