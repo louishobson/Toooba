@@ -791,7 +791,7 @@ module mkL2Tlb(L2Tlb::L2Tlb);
             endmethod
         endinterface
         interface Put llcTlbReqFlush;
-            method Action put(void x) if(!llcFlushReq);
+            method Action put(void x);
                 noAction;
             endmethod
         endinterface
