@@ -46,8 +46,7 @@ import InstructionPrefetchers::*;
 import StridePrefetchers::*;
 import MarkovPrefetchers::*;
 import CheriPrefetchers::*;
-import NewCheriPrefetchers::*;
-import ModifiedCheriPrefetchers::*;
+import CapChaserPrefetcher::*;
 import SignaturePathPrefetcher::*;
 
 `define VERBOSE True
