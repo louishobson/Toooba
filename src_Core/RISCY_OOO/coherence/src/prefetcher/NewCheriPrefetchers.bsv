@@ -361,6 +361,14 @@ module mkL1CapChaserPrefetcher#(
     // Remember whether we are expecting a successor
     Reg#(Bool) expectingSuccessor <- mkDReg(False);
 
+    // Performance events
+    Array#(Reg#(EventsPrefetcher)) perf_events <- mkDRegOR (6, unpack (0));
+    /* 1: Upgrade event
+     * 2: Downgrade event
+     * 3: Pointer table hit
+     * 4: Sent TLB request
+     * 5: Received TLB request
+     */
 
     // Hashing functions to produce the index/tags 
     function ptrTableIdxTagT getPtrTableIdxTag(Addr boundsOffset, Addr boundsLength);
@@ -468,6 +476,10 @@ module mkL1CapChaserPrefetcher#(
                     upgrade: False,
                     accessOffset: ?
                 });
+                // Downgrade event
+                EventsPrefetcher evt = unpack(0);
+                evt.evt_1 = 1;
+                perf_events[1] <= evt;
             end
             trainingTable.wrReq(tIdx, Invalid);
             if (verbose) $display("%t CapChaser L1 decay hit: ttIdxTag: 0x%h, ptIdxTag: 0x%h, trained: %b, filter %b", $time, {entry.tag, tIdx}, entry.ptrTableIdxTag, entry.trained, entry.filter);
@@ -507,6 +519,10 @@ module mkL1CapChaserPrefetcher#(
                     upgrade: True,
                     accessOffset: ttUpdate.accessOffset 
                 });
+                // Upgrade event
+                EventsPrefetcher evt = unpack(0);
+                evt.evt_0 = 1;
+                perf_events[0] <= evt;
             end
             trainingTable.wrReq(tIdx, Valid(CapChaserL1TtEntry {
                 tag: entry.tag,
@@ -570,6 +586,10 @@ module mkL1CapChaserPrefetcher#(
                     upgrade: False,
                     accessOffset: ?
                 });
+                // Downgrade event
+                EventsPrefetcher evt = unpack(0);
+                evt.evt_1 = 1;
+                perf_events[2] <= evt;
                 // Print that we're evicting an unobserved entry
                 if (verbose) $display("%t CapChaser L1 unobserved tt eviction: ttIdxTag: 0x%h, ptIdxTag: 0x%h", 
                     $time, 
@@ -604,6 +624,10 @@ module mkL1CapChaserPrefetcher#(
                 nFetched: (observedCap.demanded ? ~0 : entry.nFetched),
                 auxData: observedCLine.auxData
             });
+            // Pointer table hit event
+            EventsPrefetcher evt = unpack(0);
+            evt.evt_2 = 1;
+            perf_events[3] <= evt;
         end
         ptrTable.deqRdResp;
 
@@ -660,6 +684,11 @@ module mkL1CapChaserPrefetcher#(
             id: tlbReqIdx
         });
 
+        // Sent TLB request event
+        EventsPrefetcher evt = unpack(0);
+        evt.evt_3 = 1;
+        perf_events[4] <= evt;
+
         if (verbose) $display("%t CapChaser L1 candidate prefetch: auxData: ", 
             $time, 
             fshow(candidate.auxData),
@@ -712,6 +741,11 @@ module mkL1CapChaserPrefetcher#(
             });
         end
         tlbReqFreeQ.enq(tlbReqIdx);
+
+        // Received TLB response event
+        EventsPrefetcher evt = unpack(0);
+        evt.evt_4 = 1;
+        perf_events[5] <= evt;
 
         if (verbose) $display("%t CapChaser L1 TLB response: exception: %b, perms: %b, confidence: %b, l1Conf: %b, l2Conf: %b", 
             $time, 
@@ -968,6 +1002,19 @@ module mkL1CapChaserPrefetcher#(
     /* We don't expect to receive any broadcasts */
     method Action sendBroadcastData(PrefetcherBroadcastData data);
     endmethod
+
+`ifdef PERFORMANCE_MONITORING
+    method EventsPrefetcher events;
+        let evt = EventsPrefetcher {
+            evt_0: perf_events[0].evt_0,
+            evt_1: perf_events[0].evt_1,
+            evt_2: perf_events[0].evt_2,
+            evt_3: perf_events[0].evt_3,
+            evt_4: perf_events[0].evt_4
+        };
+        return evt;
+    endmethod
+`endif
 
 endmodule
 
