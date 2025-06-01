@@ -154,8 +154,7 @@
 
     // L1
     `define LOG_L1_LINES 8 // 16KB
-    `define LOG_L1_WAYS 2 // 4 ways
-    `define L1D_CRQ_NUM 8
+    `define LOG_L1_WAYS 3 // 8 ways
 
     // LLC
     `define LOG_LLC_LINES 14 // 1MB
