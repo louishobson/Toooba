@@ -40,6 +40,7 @@ import PerformanceMonitor::*;
 import Ehr::*;
 import ConfigReg::*;
 import DReg::*;
+import SpecialRegs::*;
 
 `include "div_table_4x4to7.bsvi"
 
