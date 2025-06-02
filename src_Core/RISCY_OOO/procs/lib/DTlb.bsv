@@ -207,6 +207,8 @@ module mkDTlb#(
 
     // free list of pend entries, to cut off path from procResp to procReq
     Fifo#(DTlbReqNum, DTlbReqIdx) freeQ <- mkCFFifo;
+    ConfigReg#(Bit#(TAdd#(TLog#(DTlbReqNum),1))) freeQEnqs <- mkConfigReg(0);
+    ConfigReg#(Bit#(TAdd#(TLog#(DTlbReqNum),1))) freeQDeqs <- mkConfigReg(0);
     Reg#(Bool) freeQInited <- mkReg(False);
     Reg#(DTlbReqIdx) freeQInitIdx <- mkReg(0);
 
