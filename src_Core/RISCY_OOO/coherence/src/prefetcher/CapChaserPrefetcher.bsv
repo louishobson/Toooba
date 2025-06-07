@@ -395,9 +395,14 @@ module mkL1CapChaserPrefetcher#(
     function Bool isDemanded(Maybe#(observedCapT) cap);
         return (cap matches tagged Valid .c ? c.demanded : False);
     endfunction
+    function Bool isBackbone(Maybe#(observedCapT) cap);
+        return (cap matches tagged Valid .c ? c.sizeMatch : False);
+    endfunction
     function nextObservedCapIdx;
         if (observedCLineQ.notEmpty) begin
             if (findIndex(id, zipWith(\&& , map(isDemanded, observedCLineQ.first.caps), unprocessedObservedCap)) matches tagged Valid .idx) begin
+                return Valid(idx);
+            end else if (findIndex(id, zipWith(\&& , map(isBackbone, observedCLineQ.first.caps), unprocessedObservedCap)) matches tagged Valid .idx) begin
                 return Valid(idx);
             end else begin
                 return findIndex(id, zipWith(\&& , map(isValid, observedCLineQ.first.caps), unprocessedObservedCap));
@@ -1093,9 +1098,14 @@ module mkLLCapChaserPrefetcher#(
     function Bool isDemanded(Maybe#(observedCapT) cap);
         return (cap matches tagged Valid .c ? c.demanded : False);
     endfunction
+    function Bool isBackbone(Maybe#(observedCapT) cap);
+        return (cap matches tagged Valid .c ? c.sizeMatch : False);
+    endfunction
     function nextObservedCapIdx;
         if (observedCLineQ.notEmpty) begin
             if (findIndex(id, zipWith(\&& , map(isDemanded, observedCLineQ.first.caps), unprocessedObservedCap)) matches tagged Valid .idx) begin
+                return Valid(idx);
+            end else if (findIndex(id, zipWith(\&& , map(isBackbone, observedCLineQ.first.caps), unprocessedObservedCap)) matches tagged Valid .idx) begin
                 return Valid(idx);
             end else begin
                 return findIndex(id, zipWith(\&& , map(isValid, observedCLineQ.first.caps), unprocessedObservedCap));
