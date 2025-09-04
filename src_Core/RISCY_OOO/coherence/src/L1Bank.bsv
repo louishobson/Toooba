@@ -200,8 +200,8 @@ module mkL1Bank#(
     Reg#(Maybe#(LineAddr)) linkAddr = linkAddrEhr[0]; // normal processing use port 0
     Reg#(Maybe#(LineAddr)) linkAddrRst = linkAddrEhr[1]; // reset by outside use port 1
 
-    Reg#(Bit#(TAdd#(TLog#(cRqNum),1))) crqMshrEnqs <- mkConfigReg(0);
-    Reg#(Bit#(TAdd#(TLog#(cRqNum),1))) crqMshrDeqs <- mkConfigReg(0);
+    Reg#(Bit#(64)) crqMshrEnqs <- mkReg(0);
+    Reg#(Bit#(64)) crqMshrDeqs <- mkConfigReg(0);
 
     // we process AMO resp in a new cycle to cut critical path
     Reg#(Maybe#(AmoHitInfo#(cRqIdxT, procRqT))) processAmo <- mkReg(Invalid);
@@ -250,7 +250,7 @@ module mkL1Bank#(
     Count#(Data) amoMissLat <- mkCount(0);
 `endif
 `ifdef PERFORMANCE_MONITORING
-    Array #(Reg #(EventsL1D)) perf_events <- mkDRegOR (5, unpack (0));
+    Array #(Reg #(EventsL1D)) perf_events <- mkDRegOR (6, unpack (0));
 `endif
 function Action incrReqCnt(MemOp op, Addr boundsOffset, Addr boundsLength);
 action
@@ -528,7 +528,7 @@ endfunction
                     fshow(r.op)
                 );
             EventsL1D events = unpack (0);
-            events.evt_AMO_MISS_LAT = 1;
+            events.evt_AMO_MISS = 1;
             perf_events[2] <= events;
         end        
     endrule
@@ -1087,6 +1087,12 @@ endfunction
                     // If this is a prefetch, we can drop the prefetch here (prefetch was probably late)
                     if (cRqIsPrefetch[n]) begin
                         cRqDrop;
+                        // This prefetch was late
+                        if (!cRqIsPrefetch[cOwner]) begin
+                            EventsL1D events = unpack (0);
+                            events.evt_EVICT = 1;
+                            perf_events[5] <= events;
+                        end
                     end else begin
                         cRqSetDepNoCacheChange;
                     end
@@ -1220,7 +1226,7 @@ endfunction
             end
             else begin
                 EventsL1D events = unpack (0);
-                events.evt_AMO_MISS = 1;
+                events.evt_AMO_MISS_LAT = 1;
                 perf_events[3] <= events;
             end
         end

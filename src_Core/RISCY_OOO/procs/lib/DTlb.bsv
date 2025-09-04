@@ -575,7 +575,11 @@ module mkDTlb#(
                     // we can ignore pendValid here, because not-None pendWait implies
                     // pendValid is true
                     let r_i = getTlbReq(i);
-                    return pendWait[i] == WaitParent && getVpn(r.addr) == getVpn(r_i.addr);
+                    // It is okay for prefetch requests into the L2TLB to queue behind other prefetches,
+                    // but it is not okay for demand requests to queue behind prefetches (prefetch requests
+                    // won't trigger page table walks).
+                    Bool checkPrefetch = (!isValid(pendPrefetchInst[i]) || isValid(pendPrefetchInst[idx]));
+                    return pendWait[i] == WaitParent && getVpn(r.addr) == getVpn(r_i.addr) && checkPrefetch;
                 endfunction
                 Vector#(DTlbReqNum, DTlbReqIdx) idxVec = genWith(fromInteger);
                 if(findIndex(reqSamePage, idxVec) matches tagged Valid .i) begin
@@ -588,7 +592,7 @@ module mkDTlb#(
                     end
                 end
                 else begin
-                    // this is the first req for this VPN
+                    // this is the first non-prefetch req for this VPN
                     pendWait[idx] <= WaitParent;
                     rqToPQ.enq(DTlbRqToP {
                         vpn: vpn,
@@ -622,7 +626,7 @@ module mkDTlb#(
 `endif
  `ifdef PERFORMANCE_MONITORING
          EventsL1D ev = unpack(0);
-         //ev.evt_TLB = 1;
+         ev.evt_TLB = 1;
          perf_events[1] <= ev;
  `endif
         // conflict with wrong spec
@@ -669,7 +673,7 @@ module mkDTlb#(
     interface TlbToPrefetcher toPrefetcher;
         method Action prefetcherReq(PrefetcherReqToTlb req) if(
             !isValid(rqFromProc.wget) && !needFlush && !ldTransRsFromPQ.notEmpty && 
-            rqToPQ.notFull && freeQInited && freeQ.notEmpty && !isValid(doingWrongSpec.wget) && (prefetchTimeout == 0) && (freeQEnqs-freeQDeqs >= 3)
+            rqToPQ.notFull && freeQInited && freeQ.notEmpty && !isValid(doingWrongSpec.wget) && (prefetchTimeout == 0) && (freeQEnqs-freeQDeqs >= 5)
         );
             //wrongSpec_prefetcherReq_conflict.wset(?);
             if(verbose) $display ("%t DTlb prefetcherReq ", $time, fshow(req));
